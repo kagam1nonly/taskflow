@@ -1,9 +1,14 @@
-node_modules/
-frontend/node_modules/
-frontend/.next/
-backend/.venv/
-backend/__pycache__/
-*.pyc
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Root environments
 .env
-frontend/.env.local
-backend/.env
+.venv
+node_modules/
