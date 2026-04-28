@@ -1,0 +1,12 @@
+Dockerfile
+.dockerignore
+node_modules
+npm-debug.log
+README.md
+.next
+.git
+.vscode
+.idea
+__tests__
+vitest.config.ts
+vitest.setup.ts
