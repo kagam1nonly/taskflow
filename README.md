@@ -1,45 +1,53 @@
 # TaskFlow
 
-Real-time Kanban board with AI task breakdown.
+TaskFlow is a premium, real-time Kanban board with AI-powered task decomposition. Built with FastAPI, Next.js, and Gemini 2.5.
 
-## Stack
+![TaskFlow Screenshot](https://via.placeholder.com/1200x600/1e293b/ffffff?text=TaskFlow+Kanban+Board)
 
-- Backend: FastAPI + SQLModel + PostgreSQL (Supabase)
-- Realtime: FastAPI WebSockets + Redis pub/sub
-- Frontend: Next.js App Router + TypeScript + Tailwind + dnd-kit
-- Auth: Supabase Auth JWT passed to FastAPI
+## Key Features
+- **✨ AI Breakdown**: Describe a goal, and Gemini will automatically generate a structured task list.
+- **🔄 Real-time Sync**: Changes reflect instantly across all connected clients via WebSockets and Redis.
+- **🖐️ Smart Drag & Drop**: Smooth reordering and column-swapping powered by `@dnd-kit/sortable`.
+- **🔐 Secure**: Full authentication integration with Supabase.
+- **🎨 Premium UI**: Dark mode, glassmorphism, and smooth animations using Tailwind CSS.
 
-## Project Structure
+## Tech Stack
+- **Frontend**: Next.js 16 (App Router), Tailwind CSS, dnd-kit.
+- **Backend**: FastAPI, SQLModel (SQLAlchemy), PostgreSQL.
+- **Real-time**: Redis Pub/Sub, WebSockets.
+- **AI**: Google Gemini 2.5 (Flash & Pro).
 
-- `backend/`: FastAPI app, SQLModel models, routers, Redis broadcast service
-- `frontend/`: Next.js app with Kanban UI and API/WebSocket integration
+## Quick Start (Docker)
 
-## Backend Quick Start
+The easiest way to run TaskFlow is using Docker Compose.
 
-1. Create and activate a virtual environment.
-2. Install dependencies:
-   - `pip install -r requirements.txt`
-3. Copy `.env.example` to `.env` and set values.
-4. Run API:
-   - `uvicorn app.main:app --reload --port 8000`
+1. **Clone the repository**
+2. **Configure Environment Variables**:
+   - Copy `backend/.env.example` to `backend/.env` and add your `GEMINI_API_KEY` and Supabase credentials.
+   - Copy `frontend/.env.example` to `frontend/.env.local` and add your Supabase URL and Anon Key.
+3. **Run with Docker**:
+   ```bash
+   docker compose up --build
+   ```
+4. **Access the App**:
+   - Frontend: [http://localhost:4000](http://localhost:4000)
+   - API Docs: [http://localhost:8000/docs](http://localhost:8000/docs)
 
-## Frontend Quick Start
+## Development
 
-1. Install dependencies:
-   - `npm install`
-2. Copy `.env.example` to `.env.local` and set values.
-3. Run app:
-   - `npm run dev`
+### Backend
+```bash
+cd backend
+pip install -r requirements.txt
+uvicorn app.main:app --reload
+```
 
-## Backend Endpoints
+### Frontend
+```bash
+cd frontend
+npm install
+npm run dev
+```
 
-- `GET /health`
-- `GET /api/boards`
-- `POST /api/boards`
-- `GET /api/boards/{board_id}/columns`
-- `POST /api/boards/{board_id}/columns`
-- `GET /api/boards/{board_id}/tasks`
-- `POST /api/boards/{board_id}/tasks`
-- `PATCH /api/boards/{board_id}/tasks/{task_id}`
-- `POST /api/boards/{board_id}/tasks/breakdown`
-- `WS /ws/boards/{board_id}`
+## Status
+Check [PROJECT_STATUS.md](./PROJECT_STATUS.md) for detailed progress and technical implementation notes.
