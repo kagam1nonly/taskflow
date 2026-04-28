@@ -33,7 +33,7 @@ export type CurrentUser = {
 };
 
 type RequestOptions = {
-  method?: "GET" | "POST" | "PATCH";
+  method?: "GET" | "POST" | "PATCH" | "DELETE";
   token?: string;
   body?: unknown;
 };
@@ -90,6 +90,10 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
     }
 
     throw new Error(text);
+  }
+
+  if (response.status === 204) {
+    return undefined as T;
   }
 
   return (await response.json()) as T;
@@ -154,19 +158,40 @@ export function moveTask(
   });
 }
 
+export function editTask(
+  boardId: string,
+  taskId: string,
+  body: { title?: string; description?: string },
+  token: string,
+): Promise<Task> {
+  return request<Task>(`/boards/${boardId}/tasks/${taskId}/edit`, {
+    method: "PATCH",
+    token,
+    body,
+  });
+}
+
+export function deleteTask(
+  boardId: string,
+  taskId: string,
+  token: string,
+): Promise<void> {
+  return request<void>(`/boards/${boardId}/tasks/${taskId}`, {
+    method: "DELETE",
+    token,
+  });
+}
+
 export function getBreakdown(
   boardId: string,
   prompt: string,
   token: string,
-): Promise<Array<{ title: string; description: string | null }>> {
-  return request<Array<{ title: string; description: string | null }>>(
-    `/boards/${boardId}/tasks/breakdown`,
-    {
-      method: "POST",
-      token,
-      body: { prompt },
-    },
-  );
+): Promise<Task[]> {
+  return request<Task[]>(`/boards/${boardId}/tasks/breakdown`, {
+    method: "POST",
+    token,
+    body: { prompt },
+  });
 }
 
 export function getCurrentUser(token: string): Promise<CurrentUser> {

@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     supabase_jwt_issuer: str | None = None
     supabase_jwt_secret: str | None = None
     api_prefix: str = "/api"
+    gemini_api_key: str | None = None
 
     @property
     def jwks_url(self) -> str:
