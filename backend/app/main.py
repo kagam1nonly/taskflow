@@ -2,8 +2,11 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 
 from app.core.config import settings
+from app.core.limiter import limiter
 from app.db import init_db
 from app.routers.auth import router as auth_router
 from app.routers.tasks import router as tasks_router
@@ -19,10 +22,17 @@ async def lifespan(_: FastAPI):
     await websocket_hub.close()
 
 
+from slowapi.errors import RateLimitExceeded
+from slowapi import _rate_limit_exceeded_handler
+
 app = FastAPI(title="TaskFlow API", version="0.1.0", lifespan=lifespan)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    # Allow local dev frontends on any port (safer for development).
+    allow_origins=[],
+    allow_origin_regex=r"^http://localhost(:[0-9]+)?$",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
