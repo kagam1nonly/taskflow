@@ -1,5 +1,6 @@
-import KanbanBoard from "@/components/KanbanBoard";
+import { redirect } from "next/navigation";
 
 export default function Home() {
-  return <KanbanBoard />;
+  // We don't have a landing page yet, so just redirect to login/board
+  redirect("/login");
 }

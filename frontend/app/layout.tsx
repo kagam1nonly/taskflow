@@ -2,6 +2,9 @@ import type { Metadata } from "next";
 import { Bricolage_Grotesque, IBM_Plex_Mono } from "next/font/google";
 import "./globals.css";
 
+import { AuthProvider } from "@/contexts/AuthProvider";
+import { ToastProvider } from "@/components/Toast";
+
 const bricolageSans = Bricolage_Grotesque({
   variable: "--font-bricolage-sans",
   subsets: ["latin"],
@@ -28,7 +31,13 @@ export default function RootLayout({
       lang="en"
       className={`${bricolageSans.variable} ${ibmMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col bg-slate-950">
+        <AuthProvider>
+          <ToastProvider>
+            {children}
+          </ToastProvider>
+        </AuthProvider>
+      </body>
     </html>
   );
 }
