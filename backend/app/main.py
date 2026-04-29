@@ -13,10 +13,7 @@ from app.routers.tasks import router as tasks_router
 from app.routers.websocket import router as websocket_router
 from app.services.realtime import realtime_broadcaster, websocket_hub
 
-origins = [
-    "http://localhost:4000",
-    "https://taskflow-kanbanboard.vercel.app",
-]
+
 
 
 @asynccontextmanager
@@ -35,8 +32,8 @@ app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 app.add_middleware(
     CORSMiddleware,
-    allow_origin_regex=r"https://.*\.vercel\.app|http://localhost:.*",
-    allow_credentials=True,
+    allow_origins=["*"],
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
