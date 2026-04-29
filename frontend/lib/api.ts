@@ -41,21 +41,11 @@ type RequestOptions = {
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api";
 
 function normalizeToken(token?: string): string | undefined {
-  if (!token) {
-    return undefined;
-  }
-
+  if (!token) return undefined;
   const trimmed = token.trim();
-  if (!trimmed) {
-    return undefined;
-  }
-
-  const withoutBearer = trimmed.replace(/^Bearer\s+/i, "");
-  const withoutQuotes = withoutBearer.replace(/^['"`]+|['"`]+$/g, "");
-  const compact = withoutQuotes.replace(/\s+/g, "");
-  const jwtOnly = compact.replace(/[^A-Za-z0-9._-]/g, "");
-
-  return jwtOnly || undefined;
+  if (!trimmed) return undefined;
+  // Just remove Bearer and trim. Avoid stripping characters as it might break some JWTs.
+  return trimmed.replace(/^Bearer\s+/i, "").trim() || undefined;
 }
 
 async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
@@ -86,10 +76,14 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
     }
 
     if (parsedDetail) {
-      throw new Error(parsedDetail);
+      const error = new Error(parsedDetail);
+      (error as any).status = response.status;
+      throw error;
     }
 
-    throw new Error(text);
+    const error = new Error(text);
+    (error as any).status = response.status;
+    throw error;
   }
 
   if (response.status === 204) {
@@ -191,6 +185,17 @@ export function getBreakdown(
     method: "POST",
     token,
     body: { prompt },
+  });
+}
+
+export function clearColumnTasks(
+  boardId: string,
+  columnId: string,
+  token: string,
+): Promise<void> {
+  return request<void>(`/boards/${boardId}/columns/${columnId}/tasks/clear`, {
+    method: "DELETE",
+    token,
   });
 }
 
