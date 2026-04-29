@@ -2,7 +2,7 @@
 
 TaskFlow is a premium, real-time Kanban board with AI-powered task decomposition. Built with FastAPI, Next.js, and Gemini 2.5.
 
-![TaskFlow Preview](./frontend/public/assets/preview.png)
+![TaskFlow Preview](./frontend/public/preview.png)
 
 ## Key Features
 - **✨ AI Breakdown**: Describe a goal, and Gemini will automatically generate a structured task list.
