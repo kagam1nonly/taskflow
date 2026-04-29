@@ -2,7 +2,7 @@
 
 import { DndContext, DragEndEvent, DragOverlay, DragStartEvent } from "@dnd-kit/core";
 import { arrayMove } from "@dnd-kit/sortable";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 
 import { useAuth } from "@/contexts/AuthProvider";
@@ -22,6 +22,7 @@ import {
   listColumns,
   listTasks,
   moveTask,
+  clearColumnTasks,
 } from "@/lib/api";
 
 import ColumnLane from "@/components/ColumnLane";
@@ -68,6 +69,11 @@ export default function BoardPage() {
 
   // Drag State
   const [draggingTask, setDraggingTask] = useState<Task | null>(null);
+
+  // Global drag cooldown — suppress ALL task.moved WebSocket events for a
+  // short window after every local drag to prevent rubber-banding and
+  // cascading position shifts from stale server echoes.
+  const lastDragAt = useRef<number>(0);
 
   const selectedBoard = useMemo(
     () => boards.find((b) => b.id === selectedBoardId) ?? null,
@@ -137,7 +143,16 @@ export default function BoardPage() {
   useBoardRealtime(
     selectedBoardId,
     useCallback((event) => {
-      if (event.type === "task.created" || event.type === "task.updated" || event.type === "task.moved") {
+      // task.created / task.updated — always apply immediately
+      if (event.type === "task.created" || event.type === "task.updated") {
+        const payloadTask = event.payload as Task;
+        setTasks((prev) => dedupeAndSortTasks([...prev.filter(t => t.id !== payloadTask.id), payloadTask]));
+      }
+
+      // task.moved — suppress during the drag cooldown window to prevent
+      // stale server echoes from overriding the user's optimistic UI.
+      if (event.type === "task.moved") {
+        if (Date.now() - lastDragAt.current < 3000) return;
         const payloadTask = event.payload as Task;
         setTasks((prev) => dedupeAndSortTasks([...prev.filter(t => t.id !== payloadTask.id), payloadTask]));
       }
@@ -145,6 +160,11 @@ export default function BoardPage() {
       if (event.type === "task.deleted") {
         const { id } = event.payload as { id: string };
         setTasks((prev) => prev.filter((t) => t.id !== id));
+      }
+
+      if (event.type === "column.cleared") {
+        const { column_id } = event.payload as { column_id: string };
+        setTasks((prev) => prev.filter((t) => t.column_id !== column_id));
       }
 
       if (event.type === "column.created") {
@@ -164,64 +184,63 @@ export default function BoardPage() {
     const { active, over } = event;
     if (!over || !selectedBoardId || !token) return;
 
-    const activeTask = active.data.current?.task as Task | undefined;
-    if (!activeTask) return;
+    // IMPORTANT: dnd-kit event data (.data.current.task) contains the task
+    // object from the *initial render*, which can be stale after rapid moves.
+    // Always look up the LIVE task from React state for accurate column_id.
+    const liveActiveTask = tasks.find((t) => t.id === active.id.toString());
+    if (!liveActiveTask) return;
 
     const overId = over.id.toString();
-    const isOverColumn = columns.some((c) => c.id === overId);
 
     let targetColumnId: string;
     let targetIndex: number;
 
-    const targetColumnTasks = tasks
-      .filter((t) => (isOverColumn ? t.column_id === overId : t.column_id === (tasks.find((ot) => ot.id === overId)?.column_id)))
-      .sort((a, b) => a.position - b.position);
-
-    if (isOverColumn) {
-      targetColumnId = overId;
-      // If dropping on an empty column, put at top. 
-      // If dropping on a column with tasks, dnd-kit usually targets the list, 
-      // but let's default to top for the column drop zone.
+    const overData = over.data.current;
+    
+    if (overData?.column) {
+      // Dropped directly onto an empty column zone
+      targetColumnId = overData.column.id;
       targetIndex = 0;
+    } else if (overData?.sortable) {
+      // Dropped onto another task — look up live state for accurate column_id
+      const liveOverTask = tasks.find((t) => t.id === overId);
+      if (!liveOverTask) return;
+      targetColumnId = liveOverTask.column_id;
+      const sortableIndex = overData.sortable.index;
+      targetIndex = typeof sortableIndex === "number" ? sortableIndex : 0;
     } else {
-      const overTask = tasks.find((t) => t.id === overId);
-      if (!overTask) return;
-      targetColumnId = overTask.column_id;
-      targetIndex = targetColumnTasks.findIndex((t) => t.id === overId);
+      return;
     }
 
-    // If same column and same index (approx), skip
-    if (activeTask.column_id === targetColumnId) {
-      const currentIndex = targetColumnTasks.findIndex((t) => t.id === activeTask.id);
-      if (currentIndex === targetIndex) return;
+    // Skip if it didn't really move
+    if (liveActiveTask.column_id === targetColumnId && liveActiveTask.position === targetIndex) {
+      return;
     }
 
     const previousTasks = [...tasks];
 
     // Optimistic update using arrayMove and position recalculation
+    // We calculate everything inside the state setter to avoid stale closure bugs during rapid moves
     setTasks((prev) => {
-      const activeIdx = prev.findIndex((t) => t.id === activeTask.id);
+      const activeIdx = prev.findIndex((t) => t.id === liveActiveTask.id);
+      if (activeIdx === -1) return prev;
+      
       const newTasks = [...prev];
       
       // Update the task's column
       const updatedTask = { ...newTasks[activeIdx], column_id: targetColumnId };
       newTasks[activeIdx] = updatedTask;
 
-      // Re-sort and re-assign positions for the target column
-      // This is simplified; a production app might use fractional indexing
       const columnTasks = newTasks
         .filter((t) => t.column_id === targetColumnId)
         .sort((a, b) => a.position - b.position);
       
-      // If it's a new column, the task isn't in columnTasks yet or has wrong position
-      // We'll use arrayMove to place it at targetIndex
-      const currentInColIdx = columnTasks.findIndex(t => t.id === activeTask.id);
+      const currentInColIdx = columnTasks.findIndex(t => t.id === liveActiveTask.id);
       let finalColumnTasks: Task[];
       
       if (currentInColIdx !== -1) {
         finalColumnTasks = arrayMove(columnTasks, currentInColIdx, targetIndex);
       } else {
-        // Moving from another column
         finalColumnTasks = [...columnTasks];
         finalColumnTasks.splice(targetIndex, 0, updatedTask);
       }
@@ -230,14 +249,17 @@ export default function BoardPage() {
       const updatedWithPositions = finalColumnTasks.map((t, i) => ({ ...t, position: i }));
       
       // Merge back into total tasks
-      const otherTasks = newTasks.filter(t => t.column_id !== targetColumnId && t.id !== activeTask.id);
+      const otherTasks = newTasks.filter(t => t.column_id !== targetColumnId && t.id !== liveActiveTask.id);
       return dedupeAndSortTasks([...otherTasks, ...updatedWithPositions]);
     });
+
+    // Mark the drag cooldown so WebSocket task.moved events are suppressed
+    lastDragAt.current = Date.now();
 
     try {
       await moveTask(
         selectedBoardId,
-        activeTask.id,
+        liveActiveTask.id,
         {
           column_id: targetColumnId,
           position: targetIndex,
@@ -285,6 +307,15 @@ export default function BoardPage() {
         );
         toast("Task created", "success");
       } else if (modalMode === "edit" && activeTask) {
+        // Optimistic UI Update
+        setTasks((prev) =>
+          prev.map((t) =>
+            t.id === activeTask.id
+              ? { ...t, title: data.title, description: data.description || null }
+              : t
+          )
+        );
+        
         await editTask(
           selectedBoardId,
           activeTask.id,
@@ -301,13 +332,31 @@ export default function BoardPage() {
 
   async function handleDeleteTask(task: Task) {
     if (!selectedBoardId || !token) return;
-    if (!window.confirm("Are you sure you want to delete this task?")) return;
+
+    // Optimistic delete
+    setTasks((prev) => prev.filter((t) => t.id !== task.id));
 
     try {
       await deleteTask(selectedBoardId, task.id, token);
       toast("Task deleted", "info");
     } catch (err) {
+      setTasks((prev) => dedupeAndSortTasks([...prev, task]));
       toast(err instanceof Error ? err.message : "Failed to delete task", "error");
+    }
+  }
+
+  async function handleClearColumn(column: BoardColumn) {
+    if (!token) return;
+    
+    // Optimistic clear
+    const previousTasks = [...tasks];
+    setTasks((prev) => prev.filter((t) => t.column_id !== column.id));
+    
+    try {
+      await clearColumnTasks(column.board_id, column.id, token);
+    } catch (err) {
+      setTasks(previousTasks);
+      toast("Failed to clear column", "error");
     }
   }
 
@@ -343,6 +392,12 @@ export default function BoardPage() {
     }
   }
 
+  useEffect(() => {
+    if (!authLoading && !token) {
+      router.replace("/login");
+    }
+  }, [authLoading, token, router]);
+
   if (authLoading || !token) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-950">
@@ -361,29 +416,41 @@ export default function BoardPage() {
       <div className="relative mx-auto flex w-full max-w-7xl flex-col gap-8">
         {/* Header */}
         <header className="flex flex-col gap-6 rounded-3xl border border-slate-800 bg-slate-900/50 p-6 shadow-2xl backdrop-blur-xl lg:flex-row lg:items-end lg:justify-between">
-          <div className="flex flex-col">
-            <p className="text-xs font-bold uppercase tracking-[0.2em] text-indigo-400">
-              TaskFlow
-            </p>
-            <h1 className="mt-1 text-3xl font-black tracking-tight text-white">
-              {selectedBoard?.name ?? "Board"}
-            </h1>
-            <p className="mt-2 flex items-center gap-2 text-sm text-slate-400">
-              <span className="relative flex h-2 w-2">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-                <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
-              </span>
-              Real-time sync active
-            </p>
+          <div className="flex items-center gap-4">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 shadow-lg shadow-indigo-500/20">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="3" width="7" height="7" rx="1" />
+                <rect x="14" y="3" width="7" height="7" rx="1" />
+                <rect x="3" y="14" width="7" height="7" rx="1" />
+                <path d="M17.5 14v7M14 17.5h7" />
+              </svg>
+            </div>
+            <div className="flex flex-col">
+              <p className="text-xs font-bold uppercase tracking-[0.2em] text-indigo-400">
+                TaskFlow
+              </p>
+              <h1 className="mt-1 text-2xl font-black tracking-tight text-white sm:text-3xl">
+                {selectedBoard?.name ?? "Board"}
+              </h1>
+              <p className="mt-2 flex items-center gap-2 text-sm text-slate-400">
+                <span className="relative flex h-2 w-2">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+                  <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+                </span>
+                Real-time sync active
+              </p>
+            </div>
           </div>
 
           <div className="flex flex-col gap-4 lg:items-end">
-            <div className="flex items-center gap-3">
-              <div className="flex items-center gap-2 rounded-lg bg-slate-800 px-3 py-1.5 text-xs text-slate-300">
-                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-indigo-500 font-bold text-white">
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="flex items-center gap-2 rounded-lg bg-slate-800 px-3 py-1.5 text-[10px] text-slate-300 sm:text-xs">
+                <span className="flex h-4 w-4 items-center justify-center rounded-full bg-indigo-500 text-[10px] font-bold text-white sm:h-5 sm:w-5 sm:text-xs">
                   {user?.email?.[0].toUpperCase() ?? "U"}
                 </span>
-                {user?.email ?? user?.user_id}
+                <span className="max-w-[150px] truncate sm:max-w-none">
+                  {user?.email ?? user?.user_id}
+                </span>
               </div>
               <button
                 onClick={() => void signOut()}
@@ -393,12 +460,12 @@ export default function BoardPage() {
               </button>
             </div>
 
-            <div className="flex w-full items-center gap-2 rounded-xl border border-slate-800 bg-slate-950/50 p-1 lg:w-auto">
+            <div className="flex w-full flex-col gap-2 rounded-2xl border border-slate-800 bg-slate-950/50 p-1.5 sm:flex-row sm:items-center sm:rounded-xl sm:p-1 lg:w-auto">
               <input
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
                 placeholder="Describe a feature to build..."
-                className="w-full min-w-[240px] bg-transparent px-3 py-2 text-sm text-slate-200 placeholder-slate-500 outline-none"
+                className="w-full bg-transparent px-3 py-2 text-sm text-slate-200 placeholder-slate-500 outline-none sm:min-w-[240px]"
                 onKeyDown={(e) => {
                   if (e.key === "Enter") void handleBreakdown();
                 }}
@@ -406,12 +473,15 @@ export default function BoardPage() {
               <button
                 onClick={handleBreakdown}
                 disabled={isGenerating || !prompt.trim()}
-                className="flex shrink-0 items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-bold text-white shadow-lg shadow-indigo-500/25 transition-all hover:bg-indigo-500 hover:shadow-indigo-500/40 disabled:cursor-not-allowed disabled:opacity-50"
+                className="flex w-full shrink-0 items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-bold text-white shadow-lg shadow-indigo-500/25 transition-all hover:bg-indigo-500 hover:shadow-indigo-500/40 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto sm:rounded-lg sm:py-2"
               >
                 {isGenerating ? (
                   <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/20 border-t-white" />
                 ) : (
-                  <span>✨ Generate Tasks</span>
+                  <>
+                    <span className="sm:hidden">Generate Tasks</span>
+                    <span className="hidden sm:inline">✨ Generate Tasks</span>
+                  </>
                 )}
               </button>
             </div>
@@ -437,6 +507,7 @@ export default function BoardPage() {
                   setModalOpen(true);
                 }}
                 onDeleteTask={handleDeleteTask}
+                onClearColumn={handleClearColumn}
               />
             ))}
           </div>
