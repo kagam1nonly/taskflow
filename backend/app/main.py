@@ -13,6 +13,11 @@ from app.routers.tasks import router as tasks_router
 from app.routers.websocket import router as websocket_router
 from app.services.realtime import realtime_broadcaster, websocket_hub
 
+origins = [
+    "http://localhost:4000",
+    "https://taskflow-kanbanboard.vercel.app",
+]
+
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
