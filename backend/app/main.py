@@ -40,10 +40,16 @@ async def root():
         "status": "online"
     }
 
+# Define your trusted origins
+origins = [
+    "http://localhost:4000",
+    "https://taskflow-kanbanboard.vercel.app",  # Your Vercel URL
+]
+
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
