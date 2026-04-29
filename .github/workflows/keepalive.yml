@@ -2,7 +2,7 @@ name: Keep Alive
 
 on:
   schedule:
-    - cron: '*/14 * * * *' # Every 14 minutes to prevent Render from sleeping (15 min timeout)
+    - cron: '*/5 * * * *' # Every 5 minutes to prevent Render from sleeping (15 min timeout)
   workflow_dispatch: # Allows manual triggering from the Actions tab
 
 jobs:
