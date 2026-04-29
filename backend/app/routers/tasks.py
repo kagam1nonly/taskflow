@@ -337,3 +337,28 @@ async def create_breakdown(
         )
 
     return created_tasks
+
+
+@router.delete("/{board_id}/columns/{column_id}/tasks/clear")
+async def clear_column_tasks(
+    board_id: UUID,
+    column_id: UUID,
+    session: AsyncSession = Depends(get_session),
+    user_id: str = Depends(get_current_user_id),
+):
+    # Verify board exists and user has access (simplified for now as board_id is in path)
+    from sqlalchemy import delete
+    
+    # Delete tasks
+    await session.execute(
+        delete(Task).where(Task.column_id == column_id).where(Task.board_id == board_id)
+    )
+    await session.commit()
+
+    # Broadcast a clear event
+    await realtime_broadcaster.publish(
+        board_id,
+        {"type": "column.cleared", "payload": {"column_id": str(column_id)}},
+    )
+
+    return {"status": "ok", "message": "Column cleared"}

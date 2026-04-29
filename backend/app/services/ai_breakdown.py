@@ -14,11 +14,11 @@ async def _call_gemini(client, system_instruction: str, prompt: str):
     """Call Gemini with automatic retry and model fallback for overload errors."""
     from google.genai import types
 
-    # Try models in order of preference — 1.5 and 2.0 are retired/deprecated
-    model_chain = ["gemini-2.5-flash", "gemini-2.5-pro"]
+    # Using newest preview models which currently have available free-tier quotas
+    model_chain = ["gemini-3.1-flash-lite-preview", "gemini-3-flash-preview", "gemini-flash-latest"]
 
     for model in model_chain:
-        max_attempts = 3
+        max_attempts = 2
         for attempt in range(max_attempts):
             try:
                 response = await client.aio.models.generate_content(
@@ -33,24 +33,25 @@ async def _call_gemini(client, system_instruction: str, prompt: str):
                 return response
             except Exception as e:
                 err_str = str(e).upper()
+                print(f"DEBUG: Gemini Model '{model}' Failed: {e}")
+                
+                # 404 means model not found or retired - skip to next model immediately
+                if "404" in err_str or "NOT_FOUND" in err_str:
+                    break
+                
                 is_overload = "503" in err_str or "UNAVAILABLE" in err_str or "OVERLOADED" in err_str
                 is_rate_limit = "429" in err_str or "RESOURCE_EXHAUSTED" in err_str
 
-                if is_overload:
+                if is_overload or is_rate_limit:
                     if attempt < max_attempts - 1:
-                        await asyncio.sleep(1 * (attempt + 1)) # Exponential backoff
-                        continue
-                    break # Try next model
-                
-                if is_rate_limit:
-                    if attempt < max_attempts - 1:
-                        await asyncio.sleep(2 * (attempt + 1))
+                        wait_time = (2 * (attempt + 1)) + 0.5
+                        await asyncio.sleep(wait_time)
                         continue
                     break # Try next model
 
                 raise
     
-    raise Exception("Gemini service is currently unavailable or rate-limited. Please try again in a few minutes.")
+    raise Exception("429 RESOURCE_EXHAUSTED: All Gemini models reached their quota limits. Please wait a few minutes before trying again.")
 
 
 async def generate_task_breakdown(prompt: str) -> list[dict[str, Optional[str]]]:
@@ -75,13 +76,13 @@ async def generate_task_breakdown(prompt: str) -> list[dict[str, Optional[str]]]
     client = genai.Client(api_key=settings.gemini_api_key)
 
     system_instruction = """
-    You are an expert product manager and technical lead. 
-    Your job is to break down the user's feature request into exactly 3 to 6 distinct, actionable Kanban tasks.
+    You are an expert product manager and planning specialist. 
+    Your job is to break down the user's request (whether it is a software feature, a business plan, or a general life project) into exactly 3 to 6 distinct, actionable Kanban tasks.
     
     Return ONLY a valid JSON array of objects. 
     Each object MUST have exactly these two keys:
-    - "title": A short, clear action title (e.g., "Design DB schema", "Implement auth API"). Maximum 6 words.
-    - "description": A concise explanation of the scope and acceptance criteria.
+    - "title": A short, clear action title. Maximum 6 words.
+    - "description": A concise explanation of the task's scope and goal.
     """
 
     try:

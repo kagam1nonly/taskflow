@@ -36,9 +36,10 @@ def _decode_with_jwks(token: str) -> dict:
     payload = jwt.decode(
         token,
         signing_key.key,
-        algorithms=["RS256", "ES256"],
+        algorithms=["RS256", "ES256", "HS256"],
         audience=settings.supabase_jwt_audience,
         options={"verify_iss": False},
+        leeway=60,
     )
     _validate_issuer(payload)
     return payload
@@ -48,9 +49,10 @@ def _decode_with_secret(token: str, secret: str) -> dict:
     payload = jwt.decode(
         token,
         secret,
-        algorithms=["HS256"],
+        algorithms=["HS256", "RS256"],
         audience=settings.supabase_jwt_audience,
         options={"verify_iss": False},
+        leeway=60,
     )
     _validate_issuer(payload)
     return payload
@@ -61,11 +63,11 @@ def _decode_token_or_raise(token: str) -> dict:
 
     try:
         payload = _decode_with_jwks(token)
-    except (PyJWKClientError, InvalidTokenError, ValueError):
+    except Exception:
         if settings.supabase_jwt_secret:
             try:
                 payload = _decode_with_secret(token, settings.supabase_jwt_secret)
-            except (InvalidTokenError, ValueError) as exc:
+            except Exception as exc:
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail="Invalid or expired token.",
