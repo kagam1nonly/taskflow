@@ -30,6 +30,17 @@ from slowapi import _rate_limit_exceeded_handler
 app = FastAPI(title="TaskFlow API", version="0.1.0", lifespan=lifespan)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+
+@app.get("/")
+async def root():
+    return {
+        "message": "Welcome to TaskFlow API",
+        "docs": "/docs",
+        "status": "online"
+    }
+
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],

@@ -1,6 +1,17 @@
 "use client";
 
-import { DndContext, DragEndEvent, DragOverlay, DragStartEvent } from "@dnd-kit/core";
+import {
+  DndContext,
+  DragEndEvent,
+  DragOverlay,
+  DragStartEvent,
+  PointerSensor,
+  MouseSensor,
+  TouchSensor,
+  KeyboardSensor,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core";
 import { arrayMove } from "@dnd-kit/sortable";
 import { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
@@ -69,6 +80,25 @@ export default function BoardPage() {
 
   // Drag State
   const [draggingTask, setDraggingTask] = useState<Task | null>(null);
+
+  // Setup sensors for touch/mouse/pointer support
+  const sensors = useSensors(
+    useSensor(MouseSensor, {
+      // Require the mouse to move by 10 pixels before starting drag
+      activationConstraint: {
+        distance: 10,
+      },
+    }),
+    useSensor(TouchSensor, {
+      // Require a 250ms press-and-hold to start dragging on touch devices
+      // This allows the user to still scroll the board normally
+      activationConstraint: {
+        delay: 250,
+        tolerance: 5,
+      },
+    }),
+    useSensor(KeyboardSensor),
+  );
 
   // Global drag cooldown — suppress ALL task.moved WebSocket events for a
   // short window after every local drag to prevent rubber-banding and
@@ -489,7 +519,11 @@ export default function BoardPage() {
         </header>
 
         {/* Board */}
-        <DndContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+        <DndContext
+          sensors={sensors}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+        >
           <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
             {columns.map((column) => (
               <ColumnLane
