@@ -12,7 +12,6 @@ class Settings(BaseSettings):
     supabase_jwt_secret: str | None = None
     api_prefix: str = "/api"
     gemini_api_key: str | None = None
-    render_external_url: str | None = None
     allowed_origins: list[str] = ["http://localhost:3000", "http://localhost:4000"]
 
     @property

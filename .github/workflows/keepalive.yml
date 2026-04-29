@@ -1,0 +1,32 @@
+name: Keep Alive
+
+on:
+  schedule:
+    - cron: '*/14 * * * *' # Every 14 minutes to prevent Render from sleeping (15 min timeout)
+  workflow_dispatch: # Allows manual triggering from the Actions tab
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Render Service
+        run: |
+          URL="${{ secrets.RENDER_EXTERNAL_URL }}"
+          if [ -z "$URL" ]; then
+            echo "::error::RENDER_EXTERNAL_URL secret is not set. Please add it to your GitHub Repository Secrets."
+            exit 1
+          fi
+          
+          # Remove trailing slash if present and append /health
+          CLEAN_URL=$(echo $URL | sed 's:/*$::')
+          HEALTH_ENDPOINT="$CLEAN_URL/health"
+          
+          echo "Pinging $HEALTH_ENDPOINT..."
+          RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" "$HEALTH_ENDPOINT")
+          
+          if [ "$RESPONSE" -eq 200 ]; then
+            echo "Successfully pinged $HEALTH_ENDPOINT (Status: 200)"
+          else
+            echo "::error::Ping failed with status code: $RESPONSE"
+            exit 1
+          fi
