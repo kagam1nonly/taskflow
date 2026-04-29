@@ -73,6 +73,7 @@ TaskFlow is now a fully functional, real-time Kanban board with deep AI integrat
 - **Database**: `alembic upgrade head` verified.
 
 ## Deployment Notes
+- **Database**: Managed PostgreSQL on Supabase (to prevent inactivity sleeping).
 - **Environment**: Containerized via Docker Compose.
 - **Security**: Supabase Auth (JWT) required for all board operations.
 - **Scaling**: Redis-backed WebSockets allow for multiple backend instances.
