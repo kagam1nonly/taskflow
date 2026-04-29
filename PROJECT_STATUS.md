@@ -55,10 +55,15 @@ TaskFlow is now a fully functional, real-time Kanban board with deep AI integrat
 - **Glassmorphism**: Enhanced backdrop-blur and semi-transparent layers for a modern "premium" feel.
 - **Portals**: Raised modal z-index to 1000 to ensure full coverage over the board.
 
+### Authentication & Resilience
+- **Clock Skew Tolerance**: Added 60-second leeway and multi-algorithm (`HS256`, `RS256`, `ES256`) support to JWT decoding to prevent `401 Unauthorized` bugs.
+- **Smart Redirects**: Fixed board-to-login routing when tokens expire.
+- **Favicon & SEO**: Deployed official brand SVG as favicon and implemented OpenGraph metadata.
+
 ### AI Stability
-- Updated to **Gemini 2.5** models (Flash/Pro) for better reliability.
+- Updated to **Gemini 3.1/3.0 Preview** models to bypass new restrictive Free-Tier zero-quotas on stable `2.x` branches.
+- Implemented intelligent model skipping for `404 Not Found` API deprecations.
 - Implemented exponential backoff for 429 (Rate Limit) and 503 (Overload) errors.
-- Fixed 500 error in breakdown endpoint by correcting model relationships.
 
 ---
 
