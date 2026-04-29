@@ -5,6 +5,10 @@ import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable"
 
 import type { BoardColumn, Task } from "@/lib/api";
 import TaskCard from "./TaskCard";
+import { useState } from "react";
+import ConfirmModal from "./ConfirmModal";
+import { clearColumnTasks } from "@/lib/api";
+import { useAuth } from "@/contexts/AuthProvider";
 
 type ColumnLaneProps = {
   column: BoardColumn;
@@ -12,6 +16,7 @@ type ColumnLaneProps = {
   onAddTask: (column: BoardColumn) => void;
   onEditTask: (task: Task) => void;
   onDeleteTask: (task: Task) => void;
+  onClearColumn?: (column: BoardColumn) => void;
 };
 
 const COLUMN_ACCENTS: Record<string, { border: string; glow: string; badge: string }> = {
@@ -44,7 +49,11 @@ export default function ColumnLane({
   onAddTask,
   onEditTask,
   onDeleteTask,
+  onClearColumn,
 }: ColumnLaneProps) {
+  const { token } = useAuth();
+  const [isClearing, setIsClearing] = useState(false);
+  
   const { setNodeRef, isOver } = useDroppable({
     id: column.id,
     data: { column },
@@ -61,25 +70,51 @@ export default function ColumnLane({
           : `${accent.border} ${accent.glow}`
       }`}
     >
-      <header className="mb-4 flex items-center justify-between">
-        <div className="flex items-center gap-2.5">
-          <h3 className="text-sm font-bold uppercase tracking-[0.15em] text-slate-300">
+      <div className="flex items-center justify-between px-2 mb-4">
+        <div className="flex items-center gap-3">
+          <h3 className="text-sm font-bold tracking-wide text-slate-100">
             {column.title}
           </h3>
           <span
-            className={`rounded-full px-2 py-0.5 text-[10px] font-bold tabular-nums ${accent.badge}`}
+            className={`flex h-5 min-w-[20px] items-center justify-center rounded-full px-1.5 text-[10px] font-black ${accent.badge}`}
           >
             {tasks.length}
           </span>
         </div>
-        <button
-          type="button"
-          onClick={() => onAddTask(column)}
-          className="rounded-lg border border-slate-700/50 bg-slate-800/60 px-3 py-1.5 text-xs font-semibold text-slate-300 transition-all hover:border-indigo-500/50 hover:bg-indigo-600/20 hover:text-indigo-300"
-        >
-          + Add
-        </button>
-      </header>
+        <div className="flex items-center gap-1">
+          {tasks.length >= 2 && (
+            <button
+              onClick={() => setIsClearing(true)}
+              className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-800 hover:text-red-400 transition-colors"
+              title="Clear all tasks in column"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M10 11v6M14 11v6" />
+              </svg>
+            </button>
+          )}
+          <button
+            onClick={() => onAddTask(column)}
+            className="flex h-7 w-7 items-center justify-center rounded-lg bg-slate-800/50 text-slate-400 transition-all hover:bg-slate-800 hover:text-indigo-400 active:scale-95"
+          >
+            <span className="text-lg font-bold">+</span>
+          </button>
+        </div>
+      </div>
+
+      <ConfirmModal
+        isOpen={isClearing}
+        onClose={() => setIsClearing(false)}
+        onConfirm={() => {
+          if (onClearColumn) {
+            onClearColumn(column);
+          }
+        }}
+        title="Clear Column"
+        message={`Are you sure you want to delete all ${tasks.length} tasks in "${column.title}"? This action cannot be undone.`}
+        confirmText="Clear All"
+        isDanger={true}
+      />
 
       <div className="flex flex-1 flex-col gap-2.5">
         {/* Drop indicator at top when dragging over an empty area */}

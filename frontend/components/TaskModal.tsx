@@ -46,7 +46,7 @@ export default function TaskModal({
       onClick={onClose}
     >
       <div
-        className="w-full max-w-md rounded-2xl border border-slate-700/50 bg-slate-900 p-6 shadow-2xl"
+        className="mx-4 w-full max-w-md rounded-2xl border border-slate-700/50 bg-slate-900 p-6 shadow-2xl sm:mx-0"
         onClick={(e) => e.stopPropagation()}
       >
         <h2 className="text-lg font-bold text-slate-100">

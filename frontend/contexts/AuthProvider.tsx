@@ -82,8 +82,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .then((u) => {
         if (!cancelled) setUser(u);
       })
-      .catch(() => {
-        if (!cancelled) setUser(null);
+      .catch((err) => {
+        if (!cancelled) {
+          setUser(null);
+          // If the token is invalid or expired, clear it
+          if (err.status === 401) {
+            setToken("");
+            void supabase?.auth.signOut();
+          }
+        }
       });
 
     return () => {
