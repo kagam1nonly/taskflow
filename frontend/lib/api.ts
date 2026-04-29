@@ -38,7 +38,16 @@ type RequestOptions = {
   body?: unknown;
 };
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api";
+const getApiBase = () => {
+  const url = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api";
+  // If the URL doesn't end with /api, append it (unless it's just a slash or empty)
+  if (url && !url.endsWith("/api") && !url.endsWith("/api/")) {
+    return url.replace(/\/$/, "") + "/api";
+  }
+  return url;
+};
+
+const API_BASE = getApiBase();
 
 function normalizeToken(token?: string): string | undefined {
   if (!token) return undefined;
