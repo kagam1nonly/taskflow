@@ -1,3 +1,4 @@
+import asyncio
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -16,10 +17,36 @@ from app.services.realtime import realtime_broadcaster, websocket_hub
 
 
 
+async def _keep_alive():
+    """Background task to ping the server and prevent Render from sleeping."""
+    import httpx
+    import asyncio
+    
+    url = settings.render_external_url
+    if not url:
+        return
+        
+    health_url = f"{url.rstrip('/')}/health"
+    print(f"INFO: Keep-alive task started. Pinging {health_url} every 14 minutes.")
+    
+    async with httpx.AsyncClient() as client:
+        while True:
+            try:
+                # Wait 14 minutes (Render sleeps after 15 mins of inactivity)
+                await asyncio.sleep(14 * 60)
+                response = await client.get(health_url)
+                print(f"DEBUG: Keep-alive ping to {health_url}: {response.status_code}")
+            except Exception as e:
+                print(f"WARNING: Keep-alive ping failed: {e}")
+
+
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     await init_db()
+    # Start the keep-alive task in the background
+    ka_task = asyncio.create_task(_keep_alive())
     yield
+    ka_task.cancel()
     await realtime_broadcaster.close()
     await websocket_hub.close()
 

@@ -64,6 +64,7 @@ TaskFlow is now a fully functional, real-time Kanban board with deep AI integrat
 - Updated to **Gemini 3.1/3.0 Preview** models to bypass new restrictive Free-Tier zero-quotas on stable `2.x` branches.
 - Implemented intelligent model skipping for `404 Not Found` API deprecations.
 - Implemented exponential backoff for 429 (Rate Limit) and 503 (Overload) errors.
+- **Render Keep-Alive**: Added a background self-pinging task to prevent free-tier service hibernation.
 
 ---
 

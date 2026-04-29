@@ -305,12 +305,13 @@ async def create_breakdown(
     if not first_column:
         raise HTTPException(status_code=400, detail="No columns found on board to add tasks to.")
 
-    # Get current max position in that column
-    result = await session.execute(
-        select(Task).where(Task.column_id == first_column.id).order_by(Task.position.desc())
+    # Shift existing tasks in the first column down to make room at the top
+    from sqlalchemy import update
+    await session.execute(
+        update(Task)
+        .where(Task.column_id == first_column.id)
+        .values(position=Task.position + len(suggestions))
     )
-    last_task = result.scalars().first()
-    start_pos = (last_task.position + 1) if last_task else 0
 
     created_tasks = []
     for i, item in enumerate(suggestions):
@@ -319,7 +320,7 @@ async def create_breakdown(
             column_id=first_column.id,
             title=item["title"],
             description=item["description"],
-            position=start_pos + i,
+            position=i,
             status=first_column.title.lower().replace(" ", "_"),
             created_by=user_id,
         )

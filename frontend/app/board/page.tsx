@@ -104,6 +104,7 @@ export default function BoardPage() {
   // short window after every local drag to prevent rubber-banding and
   // cascading position shifts from stale server echoes.
   const lastDragAt = useRef<number>(0);
+  const generatingRef = useRef(false);
 
   const selectedBoard = useMemo(
     () => boards.find((b) => b.id === selectedBoardId) ?? null,
@@ -391,12 +392,13 @@ export default function BoardPage() {
   }
 
   async function handleBreakdown() {
-    if (!selectedBoardId || !token || !prompt.trim() || columns.length === 0) {
-      toast("Enter a prompt first.", "error");
+    if (isGenerating || generatingRef.current || !selectedBoardId || !token || !prompt.trim() || columns.length === 0) {
+      if (!prompt.trim() && !isGenerating && !generatingRef.current) toast("Enter a prompt first.", "error");
       return;
     }
 
     setIsGenerating(true);
+    generatingRef.current = true;
     try {
       const createdTasks = await getBreakdown(selectedBoardId, prompt, token);
 
@@ -404,8 +406,14 @@ export default function BoardPage() {
       setTasks((prev) => {
         const firstColumnId = columns[0]?.id;
         if (!firstColumnId) return dedupeAndSortTasks([...prev, ...createdTasks]);
+        
+        // Filter out any of these tasks that might have already arrived via WebSocket
+        // to avoid double-processing them in this specific update block
+        const taskIds = new Set(createdTasks.map(t => t.id));
+        const filteredPrev = prev.filter(t => !taskIds.has(t.id));
+
         // Shift existing tasks in first column down
-        const shifted = prev.map((t) =>
+        const shifted = filteredPrev.map((t) =>
           t.column_id === firstColumnId ? { ...t, position: t.position + createdTasks.length } : t,
         );
         // Assign positions 0..n-1 to new AI tasks
@@ -419,6 +427,7 @@ export default function BoardPage() {
       toast(err instanceof Error ? err.message : "Failed to generate tasks.", "error");
     } finally {
       setIsGenerating(false);
+      generatingRef.current = false;
     }
   }
 
