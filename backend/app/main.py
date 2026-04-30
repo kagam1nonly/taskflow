@@ -33,6 +33,7 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 
 @app.get("/")
+@app.head("/")
 async def root():
     return {
         "message": "Welcome to TaskFlow API",
@@ -60,5 +61,6 @@ app.include_router(websocket_router)
 
 
 @app.get("/health")
+@app.head("/health")
 async def health() -> dict[str, str]:
     return {"status": "ok"}
