@@ -62,7 +62,9 @@ export default function TaskCard({ task, onEdit, onDelete, isOverlay = false }: 
           transform: CSS.Translate.toString(transform),
           transition,
           opacity: isDragging ? 0 : 1,
-          touchAction: "none",
+          // Only block native touch handling while actually dragging.
+          // When idle, let touch events bubble up so the page can scroll.
+          touchAction: isDragging ? "none" : "pan-y",
         }}
         className={`group relative rounded-xl border border-slate-700/50 bg-slate-800/60 p-3.5 text-sm shadow-sm backdrop-blur transition-all hover:border-slate-600/70 hover:bg-slate-800/80 ${
           showMenu ? "z-30 ring-1 ring-slate-500/30" : "z-0"
@@ -77,7 +79,7 @@ export default function TaskCard({ task, onEdit, onDelete, isOverlay = false }: 
 
         {/* Action menu button */}
         {!isDragging && !isOverlay && (
-          <div className="absolute right-2 top-2 z-10 opacity-0 transition-opacity group-hover:opacity-100">
+          <div className="absolute right-2 top-2 z-10 opacity-0 transition-opacity group-hover:opacity-100 touch:opacity-100">
             <button
               ref={menuBtnRef}
               aria-label="Open task menu"
