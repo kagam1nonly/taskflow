@@ -90,11 +90,13 @@ export default function BoardPage() {
       },
     }),
     useSensor(TouchSensor, {
-      // Require a 250ms press-and-hold to start dragging on touch devices
-      // This allows the user to still scroll the board normally
+      // On touch devices: require a 300ms press-and-hold before drag activates.
+      // This gives the user a clear window to scroll the page by tapping or
+      // swiping without accidentally initiating a drag. Tolerance of 8px means
+      // small finger wobble during the hold is forgiven without cancelling.
       activationConstraint: {
-        delay: 250,
-        tolerance: 5,
+        delay: 300,
+        tolerance: 8,
       },
     }),
     useSensor(KeyboardSensor),
@@ -446,7 +448,7 @@ export default function BoardPage() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-950 px-6 py-8 text-slate-100">
+    <main className="min-h-screen bg-slate-950 px-3 py-4 sm:px-6 sm:py-8 text-slate-100">
       {/* Background Glows */}
       <div className="pointer-events-none fixed inset-0 overflow-hidden">
         <div className="absolute left-1/2 top-0 h-[500px] w-[800px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-indigo-500/10 blur-[120px]" />
@@ -533,7 +535,7 @@ export default function BoardPage() {
           onDragStart={handleDragStart}
           onDragEnd={handleDragEnd}
         >
-          <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+          <div className="grid gap-3 sm:gap-6 md:grid-cols-2 xl:grid-cols-3">
             {columns.map((column) => (
               <ColumnLane
                 key={column.id}
