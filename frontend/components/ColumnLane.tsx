@@ -64,7 +64,7 @@ export default function ColumnLane({
   return (
     <section
       ref={setNodeRef}
-      className={`flex min-h-[320px] flex-col rounded-2xl border bg-gradient-to-b to-transparent p-4 transition-all duration-200 ${
+      className={`flex min-h-[160px] sm:min-h-[320px] flex-col rounded-2xl border bg-gradient-to-b to-transparent p-3 sm:p-4 transition-all duration-200 ${
         isOver
           ? "border-indigo-400/60 bg-indigo-500/5 shadow-[0_0_30px_-5px_rgba(99,102,241,0.15)]"
           : `${accent.border} ${accent.glow}`
