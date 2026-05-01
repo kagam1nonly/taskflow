@@ -43,6 +43,7 @@ async def root():
 
 # Define your trusted origins
 origins = [
+    "http://localhost:3000",
     "http://localhost:4000",
     "https://taskflow-kanbanboard.vercel.app",  # Your Vercel URL
 ]

@@ -22,13 +22,24 @@ def _get_signing_key(token: str):
 
 def _allowed_issuers() -> set[str]:
     # Supabase legacy JWT projects often use `iss=supabase`.
-    return {settings.jwt_issuer, "supabase"}
+    # We also allow both the /auth/v1 version and the base project URL.
+    return {
+        settings.jwt_issuer, 
+        "supabase", 
+        settings.supabase_url,
+        settings.supabase_url.rstrip("/") + "/auth/v1"
+    }
 
 
 def _validate_issuer(payload: dict) -> None:
     issuer = payload.get("iss")
-    if not issuer or issuer not in _allowed_issuers():
-        raise InvalidTokenError("Invalid token issuer.")
+    if not issuer:
+        raise InvalidTokenError("Token missing issuer.")
+    
+    # Normalize by stripping trailing slashes for comparison
+    normalized_allowed = {i.rstrip("/") for i in _allowed_issuers() if i}
+    if issuer.rstrip("/") not in normalized_allowed:
+        raise InvalidTokenError(f"Invalid token issuer: {issuer}")
 
 
 def _decode_with_jwks(token: str) -> dict:
