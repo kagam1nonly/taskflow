@@ -16,8 +16,21 @@ from app.services.realtime import realtime_broadcaster, websocket_hub
 
 
 
+# Define your trusted origins
+origins = settings.allowed_origins
+# Add variations with trailing slashes if not present
+extended_origins = list(origins)
+for origin in origins:
+    if origin.endswith("/"):
+        extended_origins.append(origin.rstrip("/"))
+    else:
+        extended_origins.append(origin + "/")
+origins = list(set(extended_origins))
+
+
 @asynccontextmanager
 async def lifespan(_: FastAPI):
+    print(f"Starting up... Allowed origins: {origins}")
     await init_db()
     yield
     await realtime_broadcaster.close()
@@ -41,20 +54,17 @@ async def root():
         "status": "online"
     }
 
-# Define your trusted origins
-origins = [
-    "http://localhost:3000",
-    "http://localhost:4000",
-    "https://taskflow-kanbanboard.vercel.app",  # Your Vercel URL
-]
+
 
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
+    allow_origin_regex=r"https://.*\.vercel\.app",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"],
 )
 app.include_router(auth_router, prefix=settings.api_prefix)
 app.include_router(tasks_router, prefix=settings.api_prefix)

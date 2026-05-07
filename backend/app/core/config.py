@@ -12,7 +12,12 @@ class Settings(BaseSettings):
     supabase_jwt_secret: str | None = None
     api_prefix: str = "/api"
     gemini_api_key: str | None = None
-    allowed_origins: list[str] = ["http://localhost:3000", "http://localhost:4000"]
+    allowed_origins: list[str] = [
+        "http://localhost:3000",
+        "http://localhost:4000",
+        "https://taskflow-kanbanboard.vercel.app",
+        "https://taskflow-kanbanboard-git-main-kagam1nonlys-projects.vercel.app",
+    ]
 
     @property
     def jwks_url(self) -> str:
